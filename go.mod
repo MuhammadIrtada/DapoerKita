@@ -1,4 +1,4 @@
-module DapoerKita
+module dapoer-kita
 
 go 1.17
 
