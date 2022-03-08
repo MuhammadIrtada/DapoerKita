@@ -147,7 +147,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "Query successful",
+			"message": "Profile berhasil ditampilkan",
 			"data": gin.H{
 				"ID":         user.ID,
 				"nama":       user.Nama,
@@ -208,7 +208,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "Update Success.",
+			"message": "Update Berhasil",
 			"data": gin.H{
 				"nama":       user.Nama,
 				"Email":      user.Email,
@@ -235,7 +235,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "Delete success.",
+			"message": "Delete Berhasil",
 		})
 	})
 }

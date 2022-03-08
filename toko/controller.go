@@ -86,7 +86,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "Query successful.",
+			"message": "Toko Berhasil Ditampilkan",
 			"data":    toko,
 		})
 	})
@@ -110,12 +110,6 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 				})
 				return
 			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"success": true,
-				"message": "Toko berhasil ditampilkan",
-				"data":    queryResult,
-			})
 		}
 
 		// Filter Nama
