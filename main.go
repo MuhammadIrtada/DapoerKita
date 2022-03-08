@@ -13,12 +13,13 @@ import (
 var db *gorm.DB
 var r *gin.Engine
 
+// Connect DB
 func InitDB() error {
 	_db, err := gorm.Open(mysql.Open("root:@tcp(127.0.0.1:3306)/dapoer_kita?parseTime=true"), &gorm.Config{})
 	if err != nil {
 		return err
 	}
-	db = _db
+	db := _db
 	if err = db.AutoMigrate(&user.User{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{}, &toko.Funfact{}, &toko.Category{}, &toko.Toko{}); err != nil {
 
 		return err
@@ -28,6 +29,7 @@ func InitDB() error {
 
 func InitGin() {
 	r = gin.Default()
+	// router.Use(cors.Default())
 }
 
 func StartServer() error {

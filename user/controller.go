@@ -134,7 +134,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 	})
 
 	// GET SHOWPROFILE
-	r.GET("/user/showprofile", authMiddle.AuthMiddleware(), func(c *gin.Context) {
+	r.GET("/user", authMiddle.AuthMiddleware(), func(c *gin.Context) {
 		id, _ := c.Get("id")
 		user := User{}
 		if result := db.Where("id = ?", id).Take(&user); result.Error != nil {
@@ -159,7 +159,8 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		})
 	})
 
-	r.PATCH("/user/update", authMiddle.AuthMiddleware(), func(c *gin.Context) {
+	// UPDATE PROFILE
+	r.PATCH("/user", authMiddle.AuthMiddleware(), func(c *gin.Context) {
 		id, _ := c.Get("id")
 		var body patchUserBody
 		if err := c.BindJSON(&body); err != nil {
@@ -208,11 +209,17 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "Update Success.",
-			"data":    user,
+			"data": gin.H{
+				"nama":       user.Nama,
+				"Email":      user.Email,
+				"no_telp":    user.No_Telp,
+				"created_at": user.Created_At,
+			},
 		})
 	})
 
-	r.DELETE("/user/delete", authMiddle.AuthMiddleware(), func(c *gin.Context) {
+	// DELETE AKUN
+	r.DELETE("/user", authMiddle.AuthMiddleware(), func(c *gin.Context) {
 		id, _ := c.Get("id")
 
 		user := User{
