@@ -29,6 +29,9 @@ func InitDB() error {
 
 func InitGin() {
 	r = gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+
 	r.Use(cors.Default())
 }
 

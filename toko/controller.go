@@ -99,13 +99,14 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		kota, isKotaExists := c.GetQuery("kota")
 		menu, isMenuExists := c.GetQuery("menu")
 		rating, isRatingExists := c.GetQuery("rating")
+		category, isCategoryExists := c.GetQuery("category")
 
 		queryResult := []Toko{}
 		menuResult := []Menu{}
 		trx := db
 
 		// Tanpa filter
-		if !isNamaExists && !isKotaExists && !isRatingExists {
+		if !isNamaExists && !isKotaExists && !isRatingExists && !isMenuExists && !isCategoryExists {
 			if result := db.Find(&queryResult); result.Error != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"success": false,
@@ -162,6 +163,27 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			trx = trx.Find(&queryResult)
 		}
 
+		// Filter Category
+		if isCategoryExists {
+			getCategory := Category{
+				Nama: category,
+			}
+			queryResult := []Toko{}
+
+			db.Preload("Toko").Take(&getCategory)
+
+			var arrId = []uint{}
+			for i := 0; i < len(getCategory.Toko); i++ {
+				var add = append(arrId, getCategory.Toko[i].ID)
+				arrId = add
+			}
+
+			trx = trx.Model(&Toko{}).Preload(clause.Associations).Where("id IN ?", arrId).Find(&queryResult)
+
+		} else {
+			trx = trx.Find(&queryResult)
+		}
+
 		if result := trx.Model(&Toko{}).Preload(clause.Associations).Find(&queryResult); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
@@ -176,31 +198,5 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			"message": "Toko berhasil ditampilkan",
 			"data":    queryResult,
 		})
-	})
-
-	// Category
-	r.GET("/toko/category", func(c *gin.Context) {
-		menuMasukan, _ := c.GetQuery("menu")
-		// num, _ := strconv.ParseInt(menuMasukan, 10, 64)
-
-		toko := Category{
-			Nama: menuMasukan,
-		}
-
-		// categoryy := Category{
-		// 	ID: 3,
-		// }
-
-		// db.Preload("Category").Take(&toko)
-		db.Preload("Toko").Take(&toko)
-
-		fmt.Println(toko)
-
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "Toko berhasil ditampilkan",
-			"data":    toko,
-		})
-
 	})
 }
