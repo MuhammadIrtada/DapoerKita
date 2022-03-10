@@ -20,7 +20,8 @@ func InitDB() error {
 		return err
 	}
 	db = _db
-	if err = db.AutoMigrate(&user.User{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{}, &toko.Funfact{}, &toko.Category{}, &toko.Toko{}); err != nil {
+	if err = db.AutoMigrate(&user.User{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{}, &toko.Funfact{},
+		&toko.Category{}, &toko.Toko{}, &toko.RatingInfo{}); err != nil {
 
 		return err
 	}

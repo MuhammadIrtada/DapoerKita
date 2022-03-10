@@ -236,20 +236,101 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		if result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
-				"message": "Error when inserting into the database.",
+				"message": "Komentar gagal ditambahkan",
 				"error":   result.Error.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusCreated, gin.H{
 			"success": true,
-			"message": "Percobaan Berhasil",
+			"message": "Komentar berhasil ditambahkan",
 			"data": gin.H{
 				"toko_id": toko_id,
 				"user_id": uint(user_id.(float64)),
 				"teks":    komentar.Teks,
 			},
 		})
+	})
+
+	// Add Rating
+	r.POST("/toko/:id/rating", authMiddle.AuthMiddleware(), func(c *gin.Context) {
+		user_id, _ := c.Get("id")
+		tokoId, isIdExists := c.Params.Get("id")
+		if !isIdExists {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "ID is not supplied.",
+			})
+			return
+		}
+
+		// Input dari user
+		body := RatingInfo{}
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Body is invalid.",
+				"error":   err.Error(),
+			})
+			return
+		}
+		toko_id, _ := strconv.ParseUint(tokoId, 10, 64)
+
+		// Cek antisipasi 2x rating
+		cekRating := RatingInfo{}
+
+		db.Where("toko_id = ?", uint(toko_id)).Where("user_id = ?", uint(user_id.(float64))).Take(&cekRating)
+
+		if cekRating.Toko_id == 0 && cekRating.User_id == 0 {
+			// Tambah rating pengguna
+			ratingInfo := RatingInfo{
+				Toko_id: uint(toko_id),
+				User_id: uint(user_id.(float64)),
+				Rating:  body.Rating,
+			}
+			result := db.Create(&ratingInfo)
+			if result.Error != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success": false,
+					"message": "Rating gagal ditambahkan",
+					"error":   result.Error.Error(),
+				})
+				return
+			}
+
+			c.JSON(http.StatusCreated, gin.H{
+				"success": true,
+				"message": "Rating berhasil ditambahkan",
+				"data": gin.H{
+					"toko_id": toko_id,
+					"user_id": uint(user_id.(float64)),
+					"rating":  ratingInfo.Rating,
+				},
+			})
+
+			// Menghitung rata-rata rating
+			arrRating := []RatingInfo{}
+			db.Where("toko_id = ?", uint(toko_id)).Find(&arrRating)
+			sum := 0
+			for _, rating := range arrRating {
+				sum += int(rating.Rating)
+			}
+			avg := sum / len(arrRating)
+
+			toko := Toko{
+				ID:     uint(toko_id),
+				Rating: uint(avg),
+			}
+			db.Updates(toko)
+
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Anda sudah menambahkan rating",
+			})
+			return
+		}
+
 	})
 }

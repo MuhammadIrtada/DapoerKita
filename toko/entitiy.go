@@ -36,6 +36,13 @@ type Category struct {
 	Toko []Toko `gorm:"many2many:toko_category;"`
 }
 
+type RatingInfo struct {
+	ID      uint `gorm:"primarykey" json:"id"`
+	Toko_id uint `json:"toko_id"`
+	User_id uint `json:"user_id"`
+	Rating  uint `json:"rating"`
+}
+
 type Toko struct {
 	ID       uint       `gorm:"primarykey" json:"id"`
 	Nama     string     `json:"nama"`
