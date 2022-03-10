@@ -1,8 +1,10 @@
 package toko
 
 import (
+	"dapoer-kita/authMiddle"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -197,6 +199,57 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			"success": true,
 			"message": "Toko berhasil ditampilkan",
 			"data":    queryResult,
+		})
+	})
+
+	// Add Komentar
+	r.POST("/toko/:id/komentar", authMiddle.AuthMiddleware(), func(c *gin.Context) {
+		user_id, _ := c.Get("id")
+		tokoId, isIdExists := c.Params.Get("id")
+		if !isIdExists {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "ID is not supplied.",
+			})
+			return
+		}
+
+		toko_id, _ := strconv.ParseUint(tokoId, 10, 64)
+
+		body := Komentar{}
+
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Body is invalid.",
+				"error":   err.Error(),
+			})
+			return
+		}
+		komentar := Komentar{
+			Toko_id: uint(toko_id),
+			User_id: uint(user_id.(float64)),
+			Teks:    body.Teks,
+		}
+
+		result := db.Create(&komentar)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when inserting into the database.",
+				"error":   result.Error.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Percobaan Berhasil",
+			"data": gin.H{
+				"toko_id": toko_id,
+				"user_id": uint(user_id.(float64)),
+				"teks":    komentar.Teks,
+			},
 		})
 	})
 }
