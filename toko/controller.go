@@ -1,10 +1,12 @@
 package toko
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func InitController(r *gin.Engine, db *gorm.DB) {
@@ -95,9 +97,11 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 	r.GET("/toko/search", func(c *gin.Context) {
 		nama, isNamaExists := c.GetQuery("nama")
 		kota, isKotaExists := c.GetQuery("kota")
+		menu, isMenuExists := c.GetQuery("menu")
 		rating, isRatingExists := c.GetQuery("rating")
 
 		queryResult := []Toko{}
+		menuResult := []Menu{}
 		trx := db
 
 		// Tanpa filter
@@ -133,7 +137,32 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			trx = trx.Find(&queryResult)
 		}
 
-		if result := trx.Model(&Toko{}).Preload("Menu").Preload("Funfact").Preload("Komentar").Preload("Video").Preload("Category").Find(&queryResult); result.Error != nil {
+		// Filter Menu
+		if isMenuExists {
+			if result := trx.Model(&Menu{}).Where("nama LIKE ?", "%"+menu+"%").Find(&menuResult); result.Error != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success": false,
+					"message": "Error when querying the database.",
+					"error":   result.Error.Error(),
+				})
+				return
+			}
+
+			var arrId = []uint{}
+			for i := 0; i < len(menuResult); i++ {
+				var add = append(arrId, menuResult[i].ID)
+				arrId = add
+			}
+
+			fmt.Println(arrId)
+
+			trx = trx.Model(&Toko{}).Preload("Menu").Where("id IN (SELECT toko_id FROM menus WHERE id IN ?)", arrId).Find(&queryResult)
+
+		} else {
+			trx = trx.Find(&queryResult)
+		}
+
+		if result := trx.Model(&Toko{}).Preload(clause.Associations).Find(&queryResult); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"message": "Error when querying the database.",

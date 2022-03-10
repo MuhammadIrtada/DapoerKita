@@ -5,6 +5,7 @@ import (
 	"dapoer-kita/user"
 	"fmt"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -28,6 +29,7 @@ func InitDB() error {
 
 func InitGin() {
 	r = gin.Default()
+	r.Use(cors.Default())
 }
 
 func StartServer() error {
