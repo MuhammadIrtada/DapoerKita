@@ -139,7 +139,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 
 		// Filter Menu
 		if isMenuExists {
-			if result := trx.Model(&Menu{}).Where("nama LIKE ?", "%"+menu+"%").Find(&menuResult); result.Error != nil {
+			if result := db.Model(&Menu{}).Where("nama LIKE ?", "%"+menu+"%").Find(&menuResult); result.Error != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"success": false,
 					"message": "Error when querying the database.",
@@ -176,5 +176,31 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			"message": "Toko berhasil ditampilkan",
 			"data":    queryResult,
 		})
+	})
+
+	// Category
+	r.GET("/toko/category", func(c *gin.Context) {
+		menuMasukan, _ := c.GetQuery("menu")
+		// num, _ := strconv.ParseInt(menuMasukan, 10, 64)
+
+		toko := Category{
+			Nama: menuMasukan,
+		}
+
+		// categoryy := Category{
+		// 	ID: 3,
+		// }
+
+		// db.Preload("Category").Take(&toko)
+		db.Preload("Toko").Take(&toko)
+
+		fmt.Println(toko)
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Toko berhasil ditampilkan",
+			"data":    toko,
+		})
+
 	})
 }

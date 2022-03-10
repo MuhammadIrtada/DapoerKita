@@ -33,6 +33,7 @@ type Funfact struct {
 type Category struct {
 	ID   uint `gorm:"primarykey"`
 	Nama string
+	Toko []Toko `gorm:"many2many:toko_category;"`
 }
 
 type Toko struct {
