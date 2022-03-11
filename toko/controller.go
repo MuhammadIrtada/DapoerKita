@@ -2,6 +2,7 @@ package toko
 
 import (
 	"dapoer-kita/authMiddle"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -351,7 +352,23 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			})
 			return
 		}
+	})
 
+	r.Static("/material", "./material")
+	r.POST("/toko/upload", func(c *gin.Context) {
+		//Upload file
+		file, err := c.FormFile("file")
+		// text, err := c.FormFile("text")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+		path := "material/" + file.Filename
+		if err := c.SaveUploadedFile(file, path); err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+		c.JSON(http.StatusOK, fmt.Sprintf("File %s uploaded successfully", file.Filename))
 	})
 }
 
