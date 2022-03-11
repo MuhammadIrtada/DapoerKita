@@ -39,7 +39,7 @@ func InitGin() {
 }
 
 func StartServer() error {
-	return r.Run()
+	return r.Run(":5000")
 }
 
 func main() {
