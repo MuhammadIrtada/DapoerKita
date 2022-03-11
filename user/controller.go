@@ -29,54 +29,68 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			return
 		}
 
-		hash, _ := HashPassword(body.Password)
+		// Cek antisipasi user sama
+		cekUser := User{}
 
-		user := User{
-			Nama:         body.Nama,
-			Email:        body.Email,
-			Password:     hash,
-			Cek_Password: body.Password,
-			No_Telp:      body.No_Telp,
-			Created_At:   time.Now(),
-		}
+		db.Where("nama = ?", body.Nama).Where("email = ?", body.Email).Take(&cekUser)
 
-		var cek = []byte(body.Password)
-		var angka = false
+		if cekUser.Nama == "" && cekUser.Email == "" {
+			hash, _ := HashPassword(body.Password)
 
-		for i := 0; i < len(body.Password); i++ {
-			if cek[i] >= 48 && cek[i] <= 57 {
-				angka = true
+			user := User{
+				Nama:         body.Nama,
+				Email:        body.Email,
+				Password:     hash,
+				Cek_Password: body.Password,
+				No_Telp:      body.No_Telp,
+				Created_At:   time.Now(),
 			}
-		}
 
-		if (len(body.Password) >= 8) && (cek[0] >= 65 && cek[0] <= 90) && angka {
-			result := db.Create(&user)
-			if result.Error != nil {
+			var cek = []byte(body.Password)
+			var angka = false
+
+			for i := 0; i < len(body.Password); i++ {
+				if cek[i] >= 48 && cek[i] <= 57 {
+					angka = true
+				}
+			}
+
+			if (len(body.Password) >= 8) && angka {
+				result := db.Create(&user)
+				if result.Error != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"success": false,
+						"message": "Error when inserting into the database.",
+						"error":   result.Error.Error(),
+					})
+					return
+				}
+			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"success": false,
-					"message": "Error when inserting into the database.",
-					"error":   result.Error.Error(),
+					"message": "Gunakan password dengan kombinasi angka dan lebih dari 8 karakter",
 				})
 				return
 			}
+
+			c.JSON(http.StatusCreated, gin.H{
+				"success": true,
+				"message": "User berhasil dibuat.",
+				"data": gin.H{
+					"nama":       user.Nama,
+					"email":      user.Email,
+					"no_telp":    user.No_Telp,
+					"created_at": user.Created_At,
+				},
+			})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
-				"message": "Password harus lebih dari 8 karakter, Huruf pertama harus besar, Password harus terdapat angka",
+				"message": "Nama atau Email sudah digunakan",
 			})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"success": true,
-			"message": "User berhasil dibuat.",
-			"data": gin.H{
-				"nama":       user.Nama,
-				"email":      user.Email,
-				"no_telp":    user.No_Telp,
-				"created_at": user.Created_At,
-			},
-		})
 	})
 
 	// POST LOGIN
@@ -127,7 +141,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		} else {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
-				"message": "Password salah.",
+				"message": "Email atau password tidak sesuai",
 			})
 			return
 		}

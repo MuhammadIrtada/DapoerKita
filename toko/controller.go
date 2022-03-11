@@ -2,7 +2,6 @@ package toko
 
 import (
 	"dapoer-kita/authMiddle"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -107,81 +106,94 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		menuResult := []Menu{}
 		trx := db
 
-		// Tanpa filter
-		if !isNamaExists && !isKotaExists && !isRatingExists && !isMenuExists && !isCategoryExists {
-			if result := db.Find(&queryResult); result.Error != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"success": false,
-					"message": "Error when querying the database.",
-					"error":   result.Error.Error(),
-				})
-				return
-			}
-		}
+		isKetemu := true
 
 		// Filter Nama
 		if isNamaExists {
-			trx = trx.Where("nama LIKE ?", "%"+nama+"%")
+			cekNama := Toko{}
+			db.Where("nama = ?", nama).Take(&cekNama)
+			if cekNama.Nama == "" {
+				isKetemu = false
+			} else {
+				trx = trx.Where("nama LIKE ?", "%"+nama+"%")
+			}
 		} else {
 			trx = trx.Find(&queryResult)
 		}
 
 		// Filter Kota
 		if isKotaExists {
-			trx = trx.Where("kota LIKE ?", "%"+kota+"%")
+			cekKota := Toko{}
+			db.Where("kota = ?", kota).Take(&cekKota)
+			if cekKota.Kota == "" {
+				isKetemu = false
+			} else {
+				trx = trx.Where("nama LIKE ?", "%"+kota+"%")
+			}
 		} else {
 			trx = trx.Find(&queryResult)
 		}
 
 		// Filter Rating
 		if isRatingExists {
-			trx = trx.Where("rating = ?", rating)
+			cekRating := Toko{}
+			db.Where("rating = ?", rating).Take(&cekRating)
+			if cekRating.Rating == 0 {
+				isKetemu = false
+			} else {
+				trx = trx.Where("rating = ?", rating)
+			}
 		} else {
 			trx = trx.Find(&queryResult)
 		}
 
 		// Filter Menu
 		if isMenuExists {
-			if result := db.Model(&Menu{}).Where("nama LIKE ?", "%"+menu+"%").Find(&menuResult); result.Error != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"success": false,
-					"message": "Error when querying the database.",
-					"error":   result.Error.Error(),
-				})
-				return
+			cekMenu := Menu{}
+			db.Where("nama = ?", menu).Take(&cekMenu)
+			if cekMenu.Nama == "" {
+				isKetemu = false
+			} else {
+				if result := db.Model(&Menu{}).Where("nama LIKE ?", "%"+menu+"%").Find(&menuResult); result.Error != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"success": false,
+						"message": "Error when querying the database.",
+						"error":   result.Error.Error(),
+					})
+					return
+				}
+
+				var arrId = []uint{}
+				for i := 0; i < len(menuResult); i++ {
+					var add = append(arrId, menuResult[i].ID)
+					arrId = add
+				}
+				trx = trx.Model(&Toko{}).Preload("Menu").Where("id IN (SELECT toko_id FROM menus WHERE id IN ?)", arrId).Find(&queryResult)
 			}
-
-			var arrId = []uint{}
-			for i := 0; i < len(menuResult); i++ {
-				var add = append(arrId, menuResult[i].ID)
-				arrId = add
-			}
-
-			fmt.Println(arrId)
-
-			trx = trx.Model(&Toko{}).Preload("Menu").Where("id IN (SELECT toko_id FROM menus WHERE id IN ?)", arrId).Find(&queryResult)
-
 		} else {
 			trx = trx.Find(&queryResult)
 		}
 
 		// Filter Category
 		if isCategoryExists {
-			getCategory := Category{
-				Nama: category,
+			cekCategory := Category{}
+			db.Where("rating = ?", rating).Take(&cekCategory)
+			if cekCategory.Nama == "" {
+				isKetemu = false
+			} else {
+				getCategory := Category{}
+				queryResult := []Toko{}
+
+				db.Preload("Toko").Where("nama = ?", category).Take(&getCategory)
+
+				var arrId = []uint{}
+				for i := 0; i < len(getCategory.Toko); i++ {
+					var add = append(arrId, getCategory.Toko[i].ID)
+					arrId = add
+				}
+
+				trx = trx.Model(&Toko{}).Preload(clause.Associations).Where("id IN ?", arrId).Find(&queryResult)
 			}
-			queryResult := []Toko{}
-
-			db.Preload("Toko").Take(&getCategory)
-
-			var arrId = []uint{}
-			for i := 0; i < len(getCategory.Toko); i++ {
-				var add = append(arrId, getCategory.Toko[i].ID)
-				arrId = add
-			}
-
-			trx = trx.Model(&Toko{}).Preload(clause.Associations).Where("id IN ?", arrId).Find(&queryResult)
-
 		} else {
 			trx = trx.Find(&queryResult)
 		}
@@ -195,11 +207,19 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "Toko berhasil ditampilkan",
-			"data":    queryResult,
-		})
+		if isKetemu {
+			c.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"message": "Toko berhasil ditampilkan",
+				"data":    queryResult,
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Obyek yang anda cari tidak ditemukan",
+				"data":    queryResult,
+			})
+		}
 	})
 
 	// Add Komentar
@@ -334,3 +354,21 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 
 	})
 }
+
+/*
+r.Static("/assets", "./assets")
+	fmt.Println("SUKSES")
+	r.POST("/upload", func(c *gin.Context) {
+		//Upload file
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+		if err := c.SaveUploadedFile(file, file.Filename); err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+		c.JSON(http.StatusOK, fmt.Sprintf("File %s uploaded successfully", file.Filename))
+	})
+*/
