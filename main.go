@@ -15,13 +15,15 @@ var db *gorm.DB
 var r *gin.Engine
 
 func InitDB() error {
-	_db, err := gorm.Open(mysql.Open("root:@tcp(127.0.0.1:3306)/dapoer_kita?parseTime=true"), &gorm.Config{})
+
+	//Pakai Env Database
+	_db, err := gorm.Open(mysql.Open("admin:HnVXVx8rF4G3YjS3nKuQrKVS7apg4Vzt@tcp(13.212.140.154:3306)/intern_bcc_10?parseTime=true"), &gorm.Config{})
 	if err != nil {
 		return err
 	}
 	db = _db
-	if err = db.AutoMigrate(&user.User{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{}, &toko.Funfact{},
-		&toko.Category{}, &toko.Toko{}, &toko.RatingInfo{}); err != nil {
+	if err = db.AutoMigrate(&user.User{}, &toko.Toko{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{}, &toko.Funfact{},
+		&toko.Category{}, &toko.RatingInfo{}); err != nil {
 
 		return err
 	}
