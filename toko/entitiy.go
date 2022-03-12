@@ -1,5 +1,10 @@
 package toko
 
+import (
+	"dapoer-kita/user"
+	"time"
+)
+
 // POST
 type Menu struct {
 	ID      uint    `gorm:"primarykey" json:"id"`
@@ -7,27 +12,26 @@ type Menu struct {
 	Nama    string  `json:"nama"`
 	Harga   float64 `json:"harga"`
 	Gambar  string  `json:"gambar"`
+	Desk    string  `json:"desk"`
 }
 
 type Komentar struct {
-	ID      uint   `gorm:"primarykey" json:"id"`
-	Toko_id uint   `json:"toko_id"`
-	User_id uint   `json:"user_id"`
-	Teks    string `json:"teks"`
+	ID      uint      `gorm:"primarykey" json:"id"`
+	Toko_id uint      `json:"toko_id"`
+	User    user.User `json:"user"`
+	User_id uint      `json:"user_id"`
+	Teks    string    `json:"teks"`
 }
 
 type Video struct {
 	ID      uint   `gorm:"primarykey" json:"id"`
 	Toko_id uint   `json:"toko_id"`
 	Menu_id uint   `json:"menu_id"`
+	User_id uint   `json:"user_id"`
 	Video   string `json:"video"`
-}
-
-type Funfact struct {
-	ID      uint   `gorm:"primarykey" json:"id"`
-	Toko_id uint   `json:"toko_id"`
-	Menu_id uint   `json:"menu_id"`
-	Teks    string `json:"teks"`
+	Title   string `json:"title"`
+	Author  string `json:"author"`
+	Banner  string `json:"banner"`
 }
 
 type Category struct {
@@ -43,14 +47,22 @@ type RatingInfo struct {
 	Rating  uint `json:"rating"`
 }
 
+type Artikel struct {
+	ID         uint      `gorm:"primarykey" json:"id"`
+	Title      string    `json:"title"`
+	Author     string    `json:"author"`
+	Gambar     string    `json:"gambar"`
+	Teks       string    `json:"teks"`
+	Created_At time.Time `json:"created_at"`
+}
+
 type Toko struct {
 	ID       uint       `gorm:"primarykey" json:"id"`
 	Nama     string     `json:"nama"`
 	Menu     []Menu     `json:"menu"`
-	Funfact  []Funfact  `json:"funfact"`
+	Funfact  string     `json:"funfact"`
 	Rating   uint       `json:"rating"`
 	Komentar []Komentar `json:"komentar"`
-	Video    []Video    `json:"video"`
 	Kota     string     `json:"kota"`
 	Category []Category `gorm:"many2many:toko_category;" json:"category"`
 }

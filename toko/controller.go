@@ -3,6 +3,7 @@ package toko
 import (
 	"dapoer-kita/authMiddle"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
 
@@ -43,7 +44,6 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 				"funfact":  body.Funfact,
 				"rating":   body.Rating,
 				"komentar": body.Komentar,
-				"video":    body.Video,
 				"kota":     body.Kota,
 				"category": body.Category,
 			},
@@ -53,7 +53,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 	// GET DISPLAY TOKO
 	r.GET("/toko", func(c *gin.Context) {
 		toko := []Toko{}
-		if result := db.Preload("Menu").Preload("Funfact").Preload("Komentar").Preload("Video").Preload("Category").Find(&toko); result.Error != nil {
+		if result := db.Preload("Menu").Preload("Komentar").Preload("Category").Find(&toko); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"message": "Error when querying the database.",
@@ -80,7 +80,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			return
 		}
 		toko := Toko{}
-		if result := db.Preload("Menu").Preload("Funfact").Preload("Komentar").Preload("Video").Preload("Category").Where("id = ?", id).Take(&toko); result.Error != nil {
+		if result := db.Preload("Menu").Preload("Komentar").Preload("Category").Where("id = ?", id).Take(&toko); result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"message": "Error when querying the database.",
@@ -296,96 +296,125 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			})
 			return
 		}
-		toko_id, _ := strconv.ParseUint(tokoId, 10, 64)
+		if body.Rating > 0 && body.Rating <= 5 {
+			toko_id, _ := strconv.ParseUint(tokoId, 10, 64)
 
-		// Cek antisipasi 2x rating
-		cekRating := RatingInfo{}
+			// Cek antisipasi 2x rating
+			cekRating := RatingInfo{}
 
-		db.Where("toko_id = ?", uint(toko_id)).Where("user_id = ?", uint(user_id.(float64))).Take(&cekRating)
+			db.Where("toko_id = ?", uint(toko_id)).Where("user_id = ?", uint(user_id.(float64))).Take(&cekRating)
 
-		if cekRating.Toko_id == 0 && cekRating.User_id == 0 {
-			// Tambah rating pengguna
-			ratingInfo := RatingInfo{
-				Toko_id: uint(toko_id),
-				User_id: uint(user_id.(float64)),
-				Rating:  body.Rating,
-			}
-			result := db.Create(&ratingInfo)
-			if result.Error != nil {
+			if cekRating.Toko_id == 0 && cekRating.User_id == 0 {
+				// Tambah rating pengguna
+				ratingInfo := RatingInfo{
+					Toko_id: uint(toko_id),
+					User_id: uint(user_id.(float64)),
+					Rating:  body.Rating,
+				}
+				result := db.Create(&ratingInfo)
+				if result.Error != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"success": false,
+						"message": "Rating gagal ditambahkan",
+						"error":   result.Error.Error(),
+					})
+					return
+				}
+
+				c.JSON(http.StatusCreated, gin.H{
+					"success": true,
+					"message": "Rating berhasil ditambahkan",
+					"data": gin.H{
+						"toko_id": toko_id,
+						"user_id": uint(user_id.(float64)),
+						"rating":  ratingInfo.Rating,
+					},
+				})
+
+				// Menghitung rata-rata rating
+				arrRating := []RatingInfo{}
+				db.Where("toko_id = ?", uint(toko_id)).Find(&arrRating)
+				sum := 0
+				for _, rating := range arrRating {
+					sum += int(rating.Rating)
+				}
+				avg := sum / len(arrRating)
+
+				toko := Toko{
+					ID:     uint(toko_id),
+					Rating: uint(avg),
+				}
+				db.Updates(toko)
+
+			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"success": false,
-					"message": "Rating gagal ditambahkan",
-					"error":   result.Error.Error(),
+					"message": "Anda sudah menambahkan rating",
 				})
 				return
 			}
-
-			c.JSON(http.StatusCreated, gin.H{
-				"success": true,
-				"message": "Rating berhasil ditambahkan",
-				"data": gin.H{
-					"toko_id": toko_id,
-					"user_id": uint(user_id.(float64)),
-					"rating":  ratingInfo.Rating,
-				},
-			})
-
-			// Menghitung rata-rata rating
-			arrRating := []RatingInfo{}
-			db.Where("toko_id = ?", uint(toko_id)).Find(&arrRating)
-			sum := 0
-			for _, rating := range arrRating {
-				sum += int(rating.Rating)
-			}
-			avg := sum / len(arrRating)
-
-			toko := Toko{
-				ID:     uint(toko_id),
-				Rating: uint(avg),
-			}
-			db.Updates(toko)
-
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{
+			c.JSON(http.StatusBadRequest, gin.H{
 				"success": false,
-				"message": "Anda sudah menambahkan rating",
+				"message": "Masukkan rating antara 1 - 5",
 			})
 			return
 		}
 	})
 
+	// UPLOAD GAMBAR MENU
+	// link environtment
+	link := "https://f191-125-166-13-9.ngrok.io/"
 	r.Static("/material", "./material")
-	r.POST("/toko/upload", func(c *gin.Context) {
-		//Upload file
+	r.POST("/toko/:id/upload", func(c *gin.Context) {
+		id, isIdExists := c.Params.Get("id")
+		if !isIdExists {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "ID is not supplied.",
+			})
+			return
+		}
 		file, err := c.FormFile("file")
-		// text, err := c.FormFile("text")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
 			return
 		}
-		path := "material/" + file.Filename
+		path := "material/gambar_menu/" + id + "_" + RandomString(10) + "_" + file.Filename
 		if err := c.SaveUploadedFile(file, path); err != nil {
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
 			return
 		}
+		parsedId, _ := strconv.ParseUint(id, 10, 64)
+
+		pathDB := link + path
+
+		menu := Menu{
+			ID:     uint(parsedId),
+			Gambar: pathDB,
+		}
+
+		resultUpdate := db.Model(&Menu{}).Where("id = ?", id).Updates(&menu)
+		if resultUpdate.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when updating the database.",
+				"error":   resultUpdate.Error.Error(),
+			})
+			return
+		}
+
 		c.JSON(http.StatusOK, fmt.Sprintf("File %s uploaded successfully", file.Filename))
 	})
 }
 
-/*
-r.Static("/assets", "./assets")
-	fmt.Println("SUKSES")
-	r.POST("/upload", func(c *gin.Context) {
-		//Upload file
-		file, err := c.FormFile("file")
-		if err != nil {
-			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
-			return
-		}
-		if err := c.SaveUploadedFile(file, file.Filename); err != nil {
-			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
-			return
-		}
-		c.JSON(http.StatusOK, fmt.Sprintf("File %s uploaded successfully", file.Filename))
-	})
-*/
+// RANDOM STRING
+func RandomString(n int) string {
+	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	s := make([]rune, n)
+	for i := range s {
+		s[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(s)
+}

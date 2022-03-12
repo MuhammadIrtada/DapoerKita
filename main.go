@@ -17,13 +17,13 @@ var r *gin.Engine
 func InitDB() error {
 
 	//Pakai Env Database
-	_db, err := gorm.Open(mysql.Open("admin:HnVXVx8rF4G3YjS3nKuQrKVS7apg4Vzt@tcp(13.212.140.154:3306)/intern_bcc_10?parseTime=true"), &gorm.Config{})
+	_db, err := gorm.Open(mysql.Open("root:@tcp(127.0.0.1:3306)/dapoer_kita?parseTime=true"), &gorm.Config{})
 	if err != nil {
 		return err
 	}
 	db = _db
-	if err = db.AutoMigrate(&user.User{}, &toko.Toko{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{}, &toko.Funfact{},
-		&toko.Category{}, &toko.RatingInfo{}); err != nil {
+	if err = db.AutoMigrate(&user.User{}, &toko.Toko{}, &toko.Menu{}, &toko.Komentar{}, &toko.Video{},
+		&toko.Category{}, &toko.RatingInfo{}, &toko.Artikel{}); err != nil {
 
 		return err
 	}
@@ -32,10 +32,16 @@ func InitDB() error {
 
 func InitGin() {
 	r = gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
+	// config := cors.DefaultConfig()
+	// config.AllowAllOrigins = true
+	// congig.AllowHeaders = true
 
-	r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 }
 
 func StartServer() error {
