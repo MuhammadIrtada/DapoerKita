@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -39,6 +40,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 			"success": true,
 			"message": "Toko berhasil dibuat.",
 			"data": gin.H{
+				"id":       body.ID,
 				"nama":     body.Nama,
 				"menu":     body.Menu,
 				"funfact":  body.Funfact,
@@ -112,7 +114,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		// Filter Nama
 		if isNamaExists {
 			cekNama := Toko{}
-			db.Where("nama = ?", nama).Take(&cekNama)
+			db.Where("nama LIKE ?", "%"+nama+"%").Take(&cekNama)
 			if cekNama.Nama == "" {
 				isKetemu = false
 			} else {
@@ -125,11 +127,11 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		// Filter Kota
 		if isKotaExists {
 			cekKota := Toko{}
-			db.Where("kota = ?", kota).Take(&cekKota)
+			db.Where("kota LIKE ?", "%"+kota+"%").Take(&cekKota)
 			if cekKota.Kota == "" {
 				isKetemu = false
 			} else {
-				trx = trx.Where("nama LIKE ?", "%"+kota+"%")
+				trx = trx.Where("kota LIKE ?", "%"+kota+"%")
 			}
 		} else {
 			trx = trx.Find(&queryResult)
@@ -151,7 +153,7 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		// Filter Menu
 		if isMenuExists {
 			cekMenu := Menu{}
-			db.Where("nama = ?", menu).Take(&cekMenu)
+			db.Where("nama LIKE ?", "%"+menu+"%").Take(&cekMenu)
 			if cekMenu.Nama == "" {
 				isKetemu = false
 			} else {
@@ -178,14 +180,14 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		// Filter Category
 		if isCategoryExists {
 			cekCategory := Category{}
-			db.Where("rating = ?", rating).Take(&cekCategory)
+			db.Where("nama LIKE ?", "%"+category+"%").Take(&cekCategory)
 			if cekCategory.Nama == "" {
 				isKetemu = false
 			} else {
 				getCategory := Category{}
 				queryResult := []Toko{}
 
-				db.Preload("Toko").Where("nama = ?", category).Take(&getCategory)
+				db.Preload("Toko").Where("nama LIKE ?", "%"+category+"%").Take(&getCategory)
 
 				var arrId = []uint{}
 				for i := 0; i < len(getCategory.Toko); i++ {
@@ -362,11 +364,108 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 		}
 	})
 
-	// UPLOAD GAMBAR MENU
+	// UPLOAD ARTIKEL
+	r.POST("/artikel", func(c *gin.Context) {
+		body := Artikel{}
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Body is invalid",
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		artikel := Artikel{
+			Title:      body.Title,
+			Author:     body.Author,
+			Teks:       body.Teks,
+			Created_At: time.Time{},
+		}
+
+		result := db.Create(&artikel)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when inserting into the database.",
+				"error":   result.Error.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"success": true,
+			"message": "Artikel berhasil dibuat.",
+			"data":    artikel,
+		})
+	})
+
+	// GET ARTIKEL
+	r.GET("/artikel", func(c *gin.Context) {
+		artikel := []Artikel{}
+		if result := db.Find(&artikel); result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when querying the database.",
+				"error":   result.Error.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Artikel berhasil ditampilkan",
+			"data":    artikel,
+		})
+	})
+
 	// link environtment
 	link := "https://f191-125-166-13-9.ngrok.io/"
 	r.Static("/material", "./material")
-	r.POST("/toko/:id/upload", func(c *gin.Context) {
+
+	// UPLOAD GAMBAR ARTIKEL
+	r.POST("/artikel/:id/upload", func(c *gin.Context) {
+		id, isIdExists := c.Params.Get("id")
+		if !isIdExists {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "ID is not supplied.",
+			})
+			return
+		}
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+		path := "material/gambar_artikel/" + id + "_" + RandomString(10) + "_" + file.Filename
+		if err := c.SaveUploadedFile(file, path); err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+		parsedId, _ := strconv.ParseUint(id, 10, 64)
+
+		pathDB := link + path
+
+		artikel := Artikel{
+			Gambar: pathDB,
+		}
+
+		resultUpdate := db.Model(&Artikel{}).Where("id = ?", parsedId).Updates(&artikel)
+		if resultUpdate.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when updating the database.",
+				"error":   resultUpdate.Error.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, fmt.Sprintf("File %s uploaded successfully", file.Filename))
+	})
+
+	// UPLOAD GAMBAR MENU
+	r.POST("/menu/:id/upload", func(c *gin.Context) {
 		id, isIdExists := c.Params.Get("id")
 		if !isIdExists {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -406,6 +505,123 @@ func InitController(r *gin.Engine, db *gorm.DB) {
 
 		c.JSON(http.StatusOK, fmt.Sprintf("File %s uploaded successfully", file.Filename))
 	})
+
+	// UPLOAD VIDEO
+	// link youtube
+	r.POST("video/upload/link", func(c *gin.Context) {
+		tokoId, isTokoIdExists := c.GetQuery("toko_id")
+		linkY, islinkYExists := c.GetQuery("link")
+		title, isTitleExists := c.GetQuery("title")
+		author, isAuthorExists := c.GetQuery("author")
+
+		if !isTokoIdExists && !isTitleExists && !islinkYExists && !isAuthorExists {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Query is not supplied.",
+			})
+			return
+		}
+		banner, err := c.FormFile("banner")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+		pathBanner := "material/video/img_banner/" + tokoId + "_" + RandomString(10) + "_" + banner.Filename
+		if err := c.SaveUploadedFile(banner, pathBanner); err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+
+		parsedId, _ := strconv.ParseUint(tokoId, 10, 64)
+		pathBannerDB := link + pathBanner
+		resultVideo := Video{
+			Toko_id: uint(parsedId),
+			Video:   linkY,
+			Banner:  pathBannerDB,
+			Title:   title,
+			Author:  author,
+		}
+		result := db.Create(&resultVideo)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when inserting into the database.",
+				"error":   result.Error.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{
+			"success": true,
+			"message": "Gambar dan video berhasil diupload",
+			"data":    resultVideo,
+		})
+	})
+	// local
+	r.POST("video/upload", func(c *gin.Context) {
+		tokoId, isTokoIdExists := c.GetQuery("toko_id")
+		title, isTitleExists := c.GetQuery("title")
+		author, isMenuExists := c.GetQuery("author")
+
+		if !isTokoIdExists && !isTitleExists && !isMenuExists {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Query is not supplied.",
+			})
+			return
+		}
+
+		video, err := c.FormFile("video")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+		banner, err := c.FormFile("banner")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+			return
+		}
+		pathVideo := "material/video/" + tokoId + "_" + RandomString(10) + "_" + video.Filename
+		if err := c.SaveUploadedFile(video, pathVideo); err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+		pathBanner := "material/video/img_banner/" + tokoId + "_" + RandomString(10) + "_" + banner.Filename
+		if err := c.SaveUploadedFile(banner, pathBanner); err != nil {
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+			return
+		}
+
+		parsedId, _ := strconv.ParseUint(tokoId, 10, 64)
+
+		pathVideoDB := link + pathVideo
+		pathBannerDB := link + pathBanner
+		resultVideo := Video{
+			Toko_id: uint(parsedId),
+			Video:   pathVideoDB,
+			Banner:  pathBannerDB,
+			Title:   title,
+			Author:  author,
+		}
+
+		result := db.Create(&resultVideo)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Error when inserting into the database.",
+				"error":   result.Error.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{
+			"success": true,
+			"message": "Gambar dan video berhasil diupload",
+			"data":    resultVideo,
+		})
+
+		c.JSON(http.StatusOK, fmt.Sprintf("File %s and %s uploaded successfully", video.Filename, banner.Filename))
+
+	})
+
 }
 
 // RANDOM STRING

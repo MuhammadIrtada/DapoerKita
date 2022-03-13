@@ -8,6 +8,7 @@ import (
 // POST
 type Menu struct {
 	ID      uint    `gorm:"primarykey" json:"id"`
+	Toko    Toko    `json:"toko"`
 	Toko_id uint    `json:"toko_id"`
 	Nama    string  `json:"nama"`
 	Harga   float64 `json:"harga"`
@@ -17,6 +18,7 @@ type Menu struct {
 
 type Komentar struct {
 	ID      uint      `gorm:"primarykey" json:"id"`
+	Toko    Toko      `json:"toko"`
 	Toko_id uint      `json:"toko_id"`
 	User    user.User `json:"user"`
 	User_id uint      `json:"user_id"`
@@ -25,9 +27,8 @@ type Komentar struct {
 
 type Video struct {
 	ID      uint   `gorm:"primarykey" json:"id"`
+	Toko    Toko   `json:"toko"`
 	Toko_id uint   `json:"toko_id"`
-	Menu_id uint   `json:"menu_id"`
-	User_id uint   `json:"user_id"`
 	Video   string `json:"video"`
 	Title   string `json:"title"`
 	Author  string `json:"author"`
@@ -41,10 +42,12 @@ type Category struct {
 }
 
 type RatingInfo struct {
-	ID      uint `gorm:"primarykey" json:"id"`
-	Toko_id uint `json:"toko_id"`
-	User_id uint `json:"user_id"`
-	Rating  uint `json:"rating"`
+	ID      uint      `gorm:"primarykey" json:"id"`
+	Toko    Toko      `json:"toko"`
+	Toko_id uint      `json:"toko_id"`
+	User    user.User `json:"user"`
+	User_id uint      `json:"user_id"`
+	Rating  uint      `json:"rating"`
 }
 
 type Artikel struct {
